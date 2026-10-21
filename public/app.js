@@ -65,7 +65,7 @@ async function api(method, url, body) {
   let data = null;
   try { data = await r.json(); } catch { /* resposta sem corpo */ }
   if (!r.ok) {
-    const fallback = r.status === 413 ? 'As fotos ficaram grandes demais. Envie menos fotos ou fotos menores.' : 'Algo deu errado. Tente de novo.';
+    const fallback = r.status === 413 ? 'As fotos ficaram grandes demais. Envie menos fotos ou fotos menores.' : `Algo deu errado (erro ${r.status}). Tente de novo.`;
     throw Object.assign(new Error((data && data.error) || fallback), { status: r.status });
   }
   return data;

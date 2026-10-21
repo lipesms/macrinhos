@@ -25,12 +25,16 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
     process.env.UPSTASH_REDIS_REST_TOKEN = 'dev-token';
     console.log('Sem Redis configurado: usando banco falso em memória (os dados somem ao reiniciar).');
   }
-  const api = require(path.join(root, 'api', '[...path].js'));
+  const api = require(path.join(root, 'api', 'index.js'));
   const port = Number(process.env.PORT) || 3000;
 
   http.createServer(async (req, res) => {
     const p = new URL(req.url, 'http://localhost').pathname;
-    if (p.startsWith('/api/')) return api(req, res);
+    if (p.startsWith('/api/')) {
+      // Imita a regra do vercel.json: /api/a/b vira /api/index?p=a/b
+      req.url = `/api/index?p=${p.slice(5)}`;
+      return api(req, res);
+    }
     let file = p === '/' || /^\/u\/[a-z0-9]{10,40}\/?$/.test(p) ? '/index.html' : p;
     const full = path.join(root, 'public', path.normalize(file));
     if (!full.startsWith(path.join(root, 'public')) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {
