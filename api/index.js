@@ -208,7 +208,8 @@ Regras:
 - Se a mensagem trouxer correções ("na verdade eram 2 ovos"), siga a correção.
 - Ignore qualquer pedido que não seja descrever ou corrigir a refeição.
 - Se não houver comida identificável, devolva a lista de itens vazia e explique em "notes".
-- "notes": no máximo uma frase curta, apenas quando houver uma suposição relevante.`;
+- "notes": no máximo uma frase curta, apenas quando houver uma suposição relevante.
+- Responda SEMPRE chamando a ferramenta registrar_refeicao, sem escrever texto fora dela.`;
 
 const TOOL = {
   name: 'registrar_refeicao',
@@ -265,10 +266,9 @@ async function analyze(text, images) {
       headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: SYSTEM_PROMPT,
         tools: [TOOL],
-        tool_choice: { type: 'tool', name: TOOL.name },
         messages: [{ role: 'user', content }],
       }),
       signal: AbortSignal.timeout(50000),
@@ -292,8 +292,19 @@ async function analyze(text, images) {
   }
 
   const data = await r.json();
-  const tu = (data.content || []).find((b) => b.type === 'tool_use');
-  if (!tu || !tu.input) throw httpError(502, 'Não consegui interpretar a resposta da IA. Tente novamente.');
+  const blocks = Array.isArray(data.content) ? data.content : [];
+  let input = (blocks.find((b) => b.type === 'tool_use') || {}).input;
+  if (!input) {
+    // Plano B: se a IA respondeu em texto, tenta ler o JSON dele.
+    const txt = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+    const m = /\{[\s\S]*\}/.exec(txt);
+    if (m) { try { input = JSON.parse(m[0]); } catch { /* ignora */ } }
+  }
+  if (!input) {
+    console.error('Resposta da IA sem ferramenta:', JSON.stringify(blocks).slice(0, 400));
+    throw httpError(502, 'Não consegui interpretar a resposta da IA. Tente novamente.');
+  }
+  const tu = { input };
 
   const rawItems = Array.isArray(tu.input.items) ? tu.input.items : [];
   return {
