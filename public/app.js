@@ -17,6 +17,10 @@ const fmtN = (n, dec = 0) => Number(n || 0).toLocaleString('pt-BR', { maximumFra
 const parseNum = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : 0; };
 const fieldVal = (n) => String(n || 0).replace('.', ',');
 const clone = (o) => JSON.parse(JSON.stringify(o));
+const RESERVED = ['api', 'u', 'app', 'admin', 'login', 'entrar', 'criar', 'static', 'public', 'assets', 'logo', 'logo-sm', 'favicon', 'index', 'style', 'healthz', 'robots', 'sitemap', 'www', 'home', 'sobre', 'ajuda'];
+const normalizeSlug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/g, '');
+const validSlug = (s) => /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(s) && !RESERVED.includes(s);
 
 const TYPES = [['cafe', 'Café da manhã'], ['almoco', 'Almoço'], ['lanche', 'Lanche'], ['jantar', 'Jantar'], ['ceia', 'Ceia']];
 const TYPE_LABEL = { cafe: 'Café da manhã', almoco: 'Almoço', lanche: 'Lanche', jantar: 'Jantar', ceia: 'Ceia', outro: 'Refeição' };
@@ -40,7 +44,7 @@ const ICONS = {
 };
 const icon = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
-const LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="var(--accent)"/><circle cx="32" cy="32" r="16" fill="none" stroke="var(--accent-ink)" stroke-width="7" stroke-dasharray="75 26" stroke-linecap="round" transform="rotate(-90 32 32)"/><circle cx="32" cy="32" r="5" fill="var(--accent-ink)"/></svg>';
+const LOGO = '<img class="logo" src="/logo-sm.png" width="36" height="36" alt="">';
 
 let toastTimer;
 function toast(msg) {
@@ -131,7 +135,7 @@ function dayLabel(date) {
 /* ================= telas ================= */
 function topbar() {
   const s = streak();
-  return `<div class="top"><div class="brand">${LOGO}Macrinhos</div>
+  return `<div class="top"><div class="brand">${LOGO}Marombinhas</div>
     <div class="streak${s ? ' on' : ''}" title="Dias seguidos com refeições registradas">${icon('flame', 18)}<span class="num">${s} ${s === 1 ? 'dia' : 'dias'}</span></div></div>`;
 }
 
@@ -221,11 +225,11 @@ function viewSemana() {
 function viewMetas() {
   const g = state.goals || { kcal: 2000, protein: 120, carbs: 230, fat: 65, fiber: 25 };
   const p = state.profile || {};
-  const link = `${location.origin}/u/${state.code}`;
+  const link = `${location.origin}/${state.code}`;
   const unit = (id, label, val) => `<label class="field"><span>${label}</span><div class="with-unit"><input class="in suffix num" id="${id}" inputmode="numeric" value="${esc(val)}"><em>g</em></div></label>`;
   return `${topbar()}
     <h1 class="page-title">Suas metas</h1>
-    ${state.goals ? '' : '<div class="welcome"><b>Bem-vindo ao Macrinhos!</b>Defina suas metas diárias para começar. Se não souber por onde começar, use o cálculo abaixo.</div>'}
+    ${state.goals ? '' : '<div class="welcome"><b>Bem-vindo ao Marombinhas!</b>Defina suas metas diárias para começar. Se não souber por onde começar, use o cálculo abaixo.</div>'}
     <section class="card">
       <div class="goals-grid">
         <label class="field wide"><span>Calorias por dia</span><div class="with-unit"><input class="in kcal-input num" id="g-kcal" inputmode="numeric" value="${esc(g.kcal)}"><em>kcal</em></div></label>
@@ -255,9 +259,9 @@ function viewMetas() {
     </details>
     <button class="btn primary big" data-action="save-goals">Salvar metas</button>
     <section class="card">
-      <h3 style="font-size:1.05rem">Seu link pessoal</h3>
-      <p class="small" style="margin-top:4px">Este link é o seu acesso: não existe login. Salve nos favoritos ou envie para você mesmo. Quem tiver o link consegue ver e editar seus dados.</p>
-      <div class="linkbox"><input class="in" id="my-link" readonly value="${esc(link)}" aria-label="Seu link pessoal"><button class="btn ghost" data-action="copy-link" aria-label="Copiar link">${icon('copy', 18)}</button></div>
+      <h3 style="font-size:1.05rem">Seu endereço</h3>
+      <p class="small" style="margin-top:4px">Este é o seu acesso: não existe senha. Qualquer pessoa que souber este endereço consegue ver e editar seu painel. Se quiser mais privacidade, apague e crie de novo com um nome menos óbvio, como <b>${esc(state.code)}-x7k</b>.</p>
+      <div class="linkbox"><input class="in" id="my-link" readonly value="${esc(link)}" aria-label="Seu endereço"><button class="btn ghost" data-action="copy-link" aria-label="Copiar endereço">${icon('copy', 18)}</button></div>
     </section>
     <button class="btn danger" data-action="delete-account">Apagar todos os meus dados</button>
     <p class="small" style="padding:0 2px">As estimativas de calorias feitas por IA podem errar. Ajuste os valores sempre que souber os números reais.</p>`;
@@ -449,14 +453,14 @@ async function saveMeal(btn) {
   }
 }
 
-async function createPanel(btn) {
+async function claimPanel(btn) {
   btn.disabled = true;
   const old = btn.textContent;
   btn.textContent = 'Criando…';
   try {
-    const { code } = await api('POST', '/api/create');
-    try { localStorage.setItem('macrinhos:code', code); } catch { /* sem armazenamento */ }
-    location.href = `/u/${code}`;
+    await api('POST', '/api/create', { slug: state.code });
+    state.goals = null; state.profile = null; state.meals = []; state.tab = 'metas';
+    render();
   } catch (e) {
     btn.disabled = false;
     btn.textContent = old;
@@ -465,13 +469,14 @@ async function createPanel(btn) {
 }
 
 const actions = {
-  create: (el) => createPanel(el),
-  'open-existing': () => {
-    const v = ($('#existing').value || '').toLowerCase().trim();
-    const m = v.match(/([a-z0-9]{10,40})\/?$/);
-    if (!m) return toast('Cole o link completo do seu painel.');
-    location.href = `/u/${m[1]}`;
+  enter: () => {
+    const raw = $('#slug') ? $('#slug').value : '';
+    const slug = normalizeSlug(raw);
+    if (slug.length < 3) return toast('Escolha um nome com pelo menos 3 letras ou números.');
+    if (RESERVED.includes(slug)) return toast('Esse nome não pode ser usado. Escolha outro.');
+    location.href = `/${slug}`;
   },
+  'claim': (el) => claimPanel(el),
   tab: (el) => {
     const t = el.dataset.tab;
     if (!state.goals && t !== 'metas') return toast('Defina suas metas para começar.');
@@ -565,7 +570,7 @@ const actions = {
   },
   'copy-link': async () => {
     const input = $('#my-link');
-    try { await navigator.clipboard.writeText(input.value); toast('Link copiado'); }
+    try { await navigator.clipboard.writeText(input.value); toast('Endereço copiado'); }
     catch { input.select(); toast('Selecionei o link. Copie manualmente.'); }
   },
   'delete-account': async () => {
@@ -618,25 +623,28 @@ function landing() {
   try { saved = localStorage.getItem('macrinhos:code'); } catch { /* ok */ }
   const sample = { kcal: 1380, goal: 2000 };
   app.innerHTML = `<div class="land">
-    <div class="top"><div class="brand">${LOGO}Macrinhos</div></div>
+    <div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
     <div class="land-grid">
       <div class="hero">
         <h1>Conte o que comeu. <em>A IA faz a conta.</em></h1>
         <p class="lead">Calorias, proteínas, carboidratos e gorduras do dia em um só lugar. Mande uma foto do prato ou escreva em poucas palavras.</p>
-        <div class="cta">
-          <button class="btn primary big" data-action="create">Criar meu painel</button>
-          ${saved ? `<a class="cont" href="/u/${esc(saved)}">Continuar no meu painel</a>` : ''}
-          <div class="existing"><input class="in" id="existing" placeholder="Já tenho um link: cole aqui" aria-label="Link do seu painel"><button class="btn ghost" data-action="open-existing">Abrir</button></div>
-        </div>
+        <form class="cta" id="enter-form">
+          <label class="field-label" for="slug" style="margin:0">Seu nome no endereço</label>
+          <div class="slug-box"><span>${esc(location.host)}/</span><input id="slug" class="in" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="seunome"></div>
+          <button class="btn primary big" type="submit">Entrar no meu painel</button>
+          ${saved ? `<a class="cont" href="/${esc(saved)}">Continuar em /${esc(saved)}</a>` : ''}
+          <p class="small">Se o nome ainda não existir, você cria o painel na próxima tela. Sem senha: quem souber o endereço entra, então prefira um nome pouco óbvio.</p>
+        </form>
         <ul class="points">
           <li>${icon('camera', 20)}<span><b>Foto ou texto.</b> Descreva a refeição do seu jeito.</span></li>
           <li>${icon('target', 20)}<span><b>Metas suas.</b> Defina calorias e macros ou deixe o app sugerir.</span></li>
-          <li>${icon('check', 20)}<span><b>Sem cadastro.</b> Seu link é o seu acesso, em qualquer aparelho.</span></li>
+          <li>${icon('check', 20)}<span><b>Sem cadastro.</b> Seu endereço é o seu acesso, em qualquer aparelho.</span></li>
         </ul>
       </div>
-      <div class="preview" aria-hidden="true">
-        <span class="tag">Exemplo</span>
-        <div class="card">
+      <div class="preview">
+        <img class="mascot" src="/logo.png" width="480" height="480" alt="Guaxinim fitness, mascote do Marombinhas">
+        <div class="card" aria-hidden="true">
+          <span class="tag">Exemplo</span>
           <div class="sum">
             <div class="ring">${ring(sample.kcal, sample.goal)}<div class="ring-mid num"><b>${fmtN(sample.goal - sample.kcal)}</b><span>kcal restantes</span></div></div>
             <div class="sum-side"><div class="stat"><small>Consumido</small><b class="num">${fmtN(sample.kcal)}<i>kcal</i></b></div><div class="stat"><small>Meta</small><b class="num">${fmtN(sample.goal)}<i>kcal</i></b></div></div>
@@ -645,28 +653,50 @@ function landing() {
         </div>
       </div>
     </div>
-    <p class="disclaimer">As estimativas feitas por IA são aproximadas e podem errar; ajuste os valores quando souber os números reais. O Macrinhos não substitui o acompanhamento de nutricionista ou médico.</p>
+    <p class="disclaimer">As estimativas feitas por IA são aproximadas e podem errar; ajuste os valores quando souber os números reais. O Marombinhas não substitui o acompanhamento de nutricionista ou médico.</p>
   </div>`;
+  $('#enter-form').addEventListener('submit', (e) => { e.preventDefault(); actions.enter(); });
+}
+
+function claimScreen(slug) {
+  app.innerHTML = `<div class="land"><div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
+    <div class="claim card">
+      <h1>Esse painel ainda não existe</h1>
+      <p class="lead" style="padding:0">Quer criar <b>${esc(location.host)}/${esc(slug)}</b> agora?</p>
+      <p class="small">Sem senha: quem souber esse endereço consegue ver e editar o painel.</p>
+      <button class="btn primary big" data-action="claim">Criar /${esc(slug)}</button>
+      <a class="btn ghost big" href="/">Escolher outro nome</a>
+    </div></div>`;
 }
 
 /* ================= início ================= */
 async function boot(code) {
   state.code = code;
-  try { localStorage.setItem('macrinhos:code', code); } catch { /* ok */ }
   app.innerHTML = '<div class="loading">Carregando…</div>';
   try {
     const d = await api('GET', `/api/u/${code}`);
+    try { localStorage.setItem('macrinhos:code', code); } catch { /* ok */ }
     state.goals = d.goals;
     state.profile = d.profile;
     state.meals = d.meals;
     state.tab = state.goals ? 'hoje' : 'metas';
     render();
   } catch (e) {
-    if (e.status === 404) { try { localStorage.removeItem('macrinhos:code'); } catch { /* ok */ } }
+    if (e.status === 404) {
+      try { if (localStorage.getItem('macrinhos:code') === code) localStorage.removeItem('macrinhos:code'); } catch { /* ok */ }
+      return claimScreen(code);
+    }
     app.innerHTML = `<div class="fatal"><h1>Não foi possível abrir o painel</h1><p>${esc(e.message)}</p><p style="margin-top:16px"><a href="/">Voltar ao início</a></p></div>`;
   }
 }
 
-const m = location.pathname.match(/^\/u\/([a-z0-9]{10,40})\/?$/);
-if (m) boot(m[1]); else landing();
+(function start() {
+  const seg = location.pathname.replace(/^\/u\//, '/').replace(/^\/+|\/+$/g, '');
+  if (!seg) return landing();
+  const slug = normalizeSlug(decodeURIComponent(seg));
+  if (!validSlug(slug)) return landing();
+  // Corrige maiúsculas e acentos no endereço (ex.: /Felipe vira /felipe).
+  if (seg !== slug) history.replaceState(null, '', `/${slug}`);
+  boot(slug);
+})();
 })();

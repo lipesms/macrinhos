@@ -172,6 +172,19 @@ function buildMeal(body, existing) {
   return meal;
 }
 
+const RESERVED = new Set(['api', 'u', 'app', 'admin', 'login', 'entrar', 'criar', 'static', 'public', 'assets', 'logo', 'logo-sm', 'favicon', 'index', 'style', 'healthz', 'robots', 'sitemap', 'www', 'home', 'sobre', 'ajuda']);
+
+// Normaliza o que a pessoa digitou: "Felipe Souza" -> "felipe-souza".
+function normalizeSlug(v) {
+  return String(v || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+    .replace(/-+$/g, '');
+}
+
 const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 function newCode() {
   const bytes = crypto.randomBytes(16);
@@ -293,7 +306,7 @@ async function analyze(text, images) {
 
 /* ---------- rotas ---------- */
 
-const API_RE = /^\/api\/u\/([a-z0-9]{10,40})(?:\/(goals|analyze|meals)(?:\/([a-z0-9]{6,40}))?)?$/;
+const API_RE = /^\/api\/u\/([a-z0-9][a-z0-9-]{1,28}[a-z0-9]|[a-z0-9]{16})(?:\/(goals|analyze|meals)(?:\/([a-z0-9]{6,40}))?)?$/;
 
 async function route(req, res) {
   const method = req.method;
@@ -312,13 +325,17 @@ async function route(req, res) {
 
   if (p === '/api/create') {
     if (method !== 'POST') throw httpError(405, 'Método não permitido.');
+    const body = await readBody(req);
+    const slug = normalizeSlug(body.slug);
+    if (slug.length < 3) throw httpError(400, 'Escolha um nome com pelo menos 3 letras ou números.');
+    if (RESERVED.has(slug)) throw httpError(400, 'Esse nome não pode ser usado. Escolha outro.');
     if (!(await rateLimit(`macrinhos:rl:create:${clientIp(req)}`, LIMITS.createsPerIpPerHour, 3600))) {
       throw httpError(429, 'Muitos painéis criados por aqui. Tente de novo mais tarde.');
     }
-    const code = newCode();
-    const doc = { code, createdAt: new Date().toISOString(), goals: null, profile: null };
-    await cmd1('SET', userKey(code), JSON.stringify(doc), 'NX');
-    return sendJson(res, 201, { code });
+    const doc = { code: slug, createdAt: new Date().toISOString(), goals: null, profile: null };
+    const done = await cmd1('SET', userKey(slug), JSON.stringify(doc), 'NX');
+    if (done !== 'OK') throw httpError(409, 'Esse nome já está em uso. Escolha outro ou entre nele.');
+    return sendJson(res, 201, { code: slug });
   }
 
   const m = API_RE.exec(p);

@@ -14,7 +14,7 @@ if (fs.existsSync(envFile)) {
   }
 }
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 (async () => {
   const hasRedis = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL);
@@ -35,7 +35,8 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
       req.url = `/api/index?p=${p.slice(5)}`;
       return api(req, res);
     }
-    let file = p === '/' || /^\/u\/[a-z0-9]{10,40}\/?$/.test(p) ? '/index.html' : p;
+    const isPage = p === '/' || /^\/u\/[^/]+\/?$/.test(p) || /^\/[^/.]+\/?$/.test(p);
+    let file = isPage ? '/index.html' : p;
     const full = path.join(root, 'public', path.normalize(file));
     if (!full.startsWith(path.join(root, 'public')) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {
       res.writeHead(302, { Location: '/' });

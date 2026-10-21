@@ -1,11 +1,11 @@
-# Macrinhos
+# Marombinhas
 
-Diário de calorias e macros com análise por IA. Cada pessoa acessa o próprio painel por um link único (`/u/código`), sem login e sem senha. Feito para rodar na **Vercel**.
+Diário de calorias e macros com análise por IA. Cada pessoa acessa o próprio painel pelo nome no endereço (`seusite.vercel.app/felipe`), sem login e sem senha. Feito para rodar na **Vercel**.
 
 ## Como as peças se encaixam
 
 ```
-public/            site (HTML, CSS, JS): a Vercel serve estes arquivos
+public/            site (HTML, CSS, JS e logo): a Vercel serve estes arquivos
 api/index.js       API: uma função serverless que atende tudo em /api/*
 vercel.json        rotas (reescreve /api/* para a função) e cabeçalhos de segurança
 dev/               só para testar no seu computador (não vai para produção)
@@ -49,7 +49,10 @@ Sem banco configurado, usa um Redis falso em memória (os dados somem ao reinici
 
 ## Notas
 
-- Quem tem o link do painel vê e edita aqueles dados. O site pede que buscadores não indexem `/u/` e não envia o link como referência a outros sites.
+- **Acesso por nome:** `/felipe` abre o painel do Felipe. Se o nome ainda não existe, o site oferece criar. Não há senha: quem digitar o mesmo nome entra no mesmo painel. Para mais privacidade, use nomes menos óbvios (ex.: `felipe-x7k`). Os endereços antigos `/u/código` continuam funcionando.
+- Nomes: 3 a 30 letras, números ou hífen (acentos e espaços são ajustados sozinhos). Alguns nomes são reservados (`api`, `admin`, `login`...).
+- O site pede que buscadores não indexem os painéis e não envia o endereço como referência a outros sites.
+- **Domínio:** o endereço padrão vem do nome do projeto na Vercel. Para ser `marombinhas.vercel.app`, vá em Settings > Domains (ou renomeie o projeto), se o nome estiver livre.
 - Fotos são reduzidas no navegador e **não são guardadas**; fica só uma miniatura de 96 px. A Vercel limita cada pedido a 4,5 MB, por isso o máximo é de 3 fotos por análise.
 - O plano Hobby da Vercel é para uso não comercial.
 - As estimativas da IA são aproximadas e não substituem nutricionista ou médico.
