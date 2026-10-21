@@ -279,9 +279,16 @@ async function analyze(text, images) {
   }
 
   if (!r.ok) {
-    console.error('API da Anthropic respondeu', r.status, (await r.text().catch(() => '')).slice(0, 500));
+    const errBody = await r.text().catch(() => '');
+    let errMsg = '';
+    try { errMsg = String(JSON.parse(errBody).error.message || ''); } catch { /* corpo sem JSON */ }
+    console.error('API da Anthropic respondeu', r.status, errMsg || errBody.slice(0, 500));
     if (r.status === 429) throw httpError(429, 'A IA está ocupada. Tente de novo em instantes.');
-    throw httpError(502, 'Não consegui analisar agora. Tente novamente.');
+    if (r.status === 401 || r.status === 403) throw httpError(502, 'A chave da IA foi recusada (erro ' + r.status + '). Confira a variável ANTHROPIC_API_KEY na Vercel.');
+    if (r.status === 404) throw httpError(502, 'O modelo de IA configurado não está disponível (erro 404). Confira a variável ANTHROPIC_MODEL.');
+    if (r.status === 400 && /credit|billing/i.test(errBody)) throw httpError(502, 'A conta da Anthropic está sem créditos (erro 400). Adicione créditos em console.anthropic.com.');
+    if (r.status === 400 && errMsg) throw httpError(502, 'A IA recusou o pedido (erro 400): ' + errMsg.slice(0, 220));
+    throw httpError(502, 'Não consegui analisar agora (erro ' + r.status + ' da IA). Tente novamente.');
   }
 
   const data = await r.json();
