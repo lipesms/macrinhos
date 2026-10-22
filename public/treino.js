@@ -476,7 +476,12 @@
           return mutate((d) => { d.workouts = d.workouts.filter((x) => x.id !== w.id); });
         }
         case 'info': S.open.has(id) ? S.open.delete(id) : S.open.add(id); return paint();
-        case 'del-ex': return mutate(() => { const w = active(); w.exercises = w.exercises.filter((x) => x.id !== id); });
+        case 'del-ex': {
+          const w = active();
+          const ex = w.exercises.find((x) => x.id === id);
+          if (!ex || !confirm(`Remover "${ex.name}" deste treino?`)) return;
+          return mutate(() => { w.exercises = w.exercises.filter((x) => x.id !== id); });
+        }
         case 'open-picker':
           S.picking = true; S.refocus = true;
           if (B.status !== 'ready') loadBase();
