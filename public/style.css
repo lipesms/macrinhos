@@ -322,6 +322,7 @@ details.card[open] summary::after { content: '–'; }
   .land-grid { grid-template-columns: 1fr; gap: 36px; }
   .hero .lead { max-width: none; }
   .cta { max-width: none; }
+  .mascot {display:none}
 }
 @media (max-width: 380px) {
   .sum { grid-template-columns: 1fr; justify-items: center; }
