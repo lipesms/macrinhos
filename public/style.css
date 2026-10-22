@@ -322,15 +322,12 @@ details.card[open] summary::after { content: '–'; }
   .land-grid { grid-template-columns: 1fr; gap: 36px; }
   .hero .lead { max-width: none; }
   .cta { max-width: none; }
+  .mascot {display: none}
 }
 @media (max-width: 380px) {
   .sum { grid-template-columns: 1fr; justify-items: center; }
   .sum-side { grid-template-columns: 1fr 1fr; width: 100%; }
   .item-top { grid-template-columns: 1fr 80px 36px; }
-}
-
-@media (min-width: 760px){
-  .mascot {display: none}
 }
 
 @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
