@@ -135,7 +135,7 @@ function dayLabel(date) {
 /* ================= telas ================= */
 function topbar() {
   const s = streak();
-  return `<div class="top"><div class="brand">${LOGO}Marombinhas</div>
+  return `<div class="top"><div class="brand">${LOGO}Macrinhos</div>
     <div class="streak${s ? ' on' : ''}" title="Dias seguidos com refeições registradas">${icon('flame', 18)}<span class="num">${s} ${s === 1 ? 'dia' : 'dias'}</span></div></div>`;
 }
 
@@ -229,7 +229,7 @@ function viewMetas() {
   const unit = (id, label, val) => `<label class="field"><span>${label}</span><div class="with-unit"><input class="in suffix num" id="${id}" inputmode="numeric" value="${esc(val)}"><em>g</em></div></label>`;
   return `${topbar()}
     <h1 class="page-title">Suas metas</h1>
-    ${state.goals ? '' : '<div class="welcome"><b>Bem-vindo ao Marombinhas!</b>Defina suas metas diárias para começar. Se não souber por onde começar, use o cálculo abaixo.</div>'}
+    ${state.goals ? '' : '<div class="welcome"><b>Bem-vindo ao Macrinhos!</b>Defina seus macros diárias para começar. Se não souber por onde começar, use o cálculo abaixo.</div>'}
     <section class="card">
       <div class="goals-grid">
         <label class="field wide"><span>Calorias por dia</span><div class="with-unit"><input class="in kcal-input num" id="g-kcal" inputmode="numeric" value="${esc(g.kcal)}"><em>kcal</em></div></label>
@@ -623,7 +623,7 @@ function landing() {
   try { saved = localStorage.getItem('macrinhos:code'); } catch { /* ok */ }
   const sample = { kcal: 1380, goal: 2000 };
   app.innerHTML = `<div class="land">
-    <div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
+    <div class="top"><div class="brand">${LOGO}Macrinhos</div></div>
     <div class="land-grid">
       <div class="hero">
         <h1>Conte o que comeu. <em>A IA faz a conta.</em></h1>
@@ -642,7 +642,7 @@ function landing() {
         </ul>
       </div>
       <div class="preview">
-        <img class="mascot" src="/logo.png" width="480" height="480" alt="Guaxinim fitness, mascote do Marombinhas">
+        <img class="mascot" src="/logo.png" width="480" height="480" alt="Guaxinim fitness, mascote do Macrinhos">
         <div class="card" aria-hidden="true">
           <span class="tag">Exemplo</span>
           <div class="sum">
@@ -653,13 +653,13 @@ function landing() {
         </div>
       </div>
     </div>
-    <p class="disclaimer">As estimativas feitas por IA são aproximadas e podem errar; ajuste os valores quando souber os números reais. O Marombinhas não substitui o acompanhamento de nutricionista ou médico.</p>
+    <p class="disclaimer">As estimativas feitas por IA são aproximadas e podem errar; ajuste os valores quando souber os números reais. O Macrinhos não substitui o acompanhamento de nutricionista ou médico.</p>
   </div>`;
   $('#enter-form').addEventListener('submit', (e) => { e.preventDefault(); actions.enter(); });
 }
 
 function claimScreen(slug) {
-  app.innerHTML = `<div class="land"><div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
+  app.innerHTML = `<div class="land"><div class="top"><div class="brand">${LOGO}Macrinhos</div></div>
     <div class="claim card">
       <h1>Esse painel ainda não existe</h1>
       <p class="lead" style="padding:0">Quer criar <b>${esc(location.host)}/${esc(slug)}</b> agora?</p>
