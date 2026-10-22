@@ -329,6 +329,10 @@ details.card[open] summary::after { content: '–'; }
   .item-top { grid-template-columns: 1fr 80px 36px; }
 }
 
+@media (min-width: 760px){
+  .mascot {display: none}
+}
+
 @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes bounce { 0%, 80%, 100% { transform: scale(.6); opacity: .5; } 40% { transform: scale(1); opacity: 1; } }
