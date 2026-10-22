@@ -140,7 +140,7 @@ function dayLabel(date) {
 /* ================= telas ================= */
 function topbar() {
   const s = streak();
-  return `<div class="top"><div class="brand">${LOGO}Marombinhas</div>
+  return `<div class="top"><a class="brand" href="/" aria-label="Marombinhas, ir para o início">${LOGO}Marombinhas</a>
     <div class="streak${s ? ' on' : ''}" title="Dias seguidos com refeições registradas">${icon('flame', 18)}<span class="num">${s} ${s === 1 ? 'dia' : 'dias'}</span></div></div>`;
 }
 
@@ -634,7 +634,7 @@ function landing() {
   try { saved = localStorage.getItem('macrinhos:code'); } catch { /* ok */ }
   const sample = { kcal: 1380, goal: 2000 };
   app.innerHTML = `<div class="land">
-    <div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
+    <div class="top"><a class="brand" href="/" aria-label="Marombinhas, ir para o início">${LOGO}Marombinhas</a></div>
     <div class="land-grid">
       <div class="hero">
         <h1>Conte o que comeu. <em>A IA faz a conta.</em></h1>
@@ -671,7 +671,7 @@ function landing() {
 }
 
 function claimScreen(slug) {
-  app.innerHTML = `<div class="land"><div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
+  app.innerHTML = `<div class="land"><div class="top"><a class="brand" href="/" aria-label="Marombinhas, ir para o início">${LOGO}Marombinhas</a></div>
     <div class="claim card">
       <h1>Esse painel ainda não existe</h1>
       <p class="lead" style="padding:0">Quer criar <b>${esc(location.host)}/${esc(slug)}</b> agora?</p>

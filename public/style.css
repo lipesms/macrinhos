@@ -444,3 +444,10 @@ textarea.t-input { resize: vertical; line-height: 1.4; }
   .t-details { flex-direction: column; }
   .t-details img { max-width: 100%; width: 100%; }
 }
+
+/* espaçamento da aba Treinos: título e descrição juntos, depois seções + tabela, depois links */
+#t-root { display: grid; gap: 16px; }
+.t-top { gap: 12px; margin-bottom: 10px; }
+.t-titlebar { padding-bottom: 2px; }
+.t-tabs { gap: 10px; }
+.t-foot { padding: 8px 2px 4px; gap: 8px 22px; }
