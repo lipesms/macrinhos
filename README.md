@@ -2,6 +2,13 @@
 
 Diário de calorias e macros com análise por IA. Cada pessoa acessa o próprio painel pelo nome no endereço (`seusite.vercel.app/felipe`), sem login e sem senha. Feito para rodar na **Vercel**.
 
+## O que tem dentro
+
+- **Dieta** (`/felipe`): metas, diário de refeições com IA, semana.
+- **Treinos** (`/felipe/treino`, aba à esquerda de Metas): título e descrição da ficha (opcional), seções, exercícios com séries e peso, tudo editável com um toque. Exercícios vêm da base ou são digitados, e o botão "i" abre foto, ativação muscular, descrição e link de exemplo.
+- **Base de exercícios** (`/exercicios`): global, qualquer pessoa cadastra. Só o nome é obrigatório.
+- **Evolução** (`/felipe/evolucao`): gráfico do peso de cada exercício; o histórico é gravado ao mudar o peso.
+
 ## Como as peças se encaixam
 
 ```
@@ -52,6 +59,7 @@ Sem banco configurado, usa um Redis falso em memória (os dados somem ao reinici
 - **Acesso por nome:** `/felipe` abre o painel do Felipe. Se o nome ainda não existe, o site oferece criar. Não há senha: quem digitar o mesmo nome entra no mesmo painel. Para mais privacidade, use nomes menos óbvios (ex.: `felipe-x7k`). Os endereços antigos `/u/código` continuam funcionando.
 - Nomes: 3 a 30 letras, números ou hífen (acentos e espaços são ajustados sozinhos). Alguns nomes são reservados (`api`, `admin`, `login`...).
 - O site pede que buscadores não indexem os painéis e não envia o endereço como referência a outros sites.
+- **Dados do Marombinhas antigo:** o treino usa as mesmas chaves do banco do projeto anterior (`treino:<nome>`, `base:global`, `foto:<id>`). Se você ligar a este projeto o mesmo banco Upstash do Marombinhas, os treinos, a base e as fotos já cadastrados aparecem sem migração. Para o treino abrir, o painel `/nome` precisa existir (o site oferece criar na primeira visita).
 - **Domínio:** o endereço padrão vem do nome do projeto na Vercel. Para ser `marombinhas.vercel.app`, vá em Settings > Domains (ou renomeie o projeto), se o nome estiver livre.
 - Fotos são reduzidas no navegador e **não são guardadas**; fica só uma miniatura de 96 px. A Vercel limita cada pedido a 4,5 MB, por isso o máximo é de 3 fotos por análise.
 - O plano Hobby da Vercel é para uso não comercial.

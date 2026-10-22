@@ -12,6 +12,7 @@
  *   macrinhos:m:<código>   hash: id da refeição -> JSON da refeição
  */
 const crypto = require('crypto');
+const SEED = require('../lib/seed.js');
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 const LIMITS = {
@@ -172,7 +173,7 @@ function buildMeal(body, existing) {
   return meal;
 }
 
-const RESERVED = new Set(['api', 'u', 'app', 'admin', 'login', 'entrar', 'criar', 'static', 'public', 'assets', 'logo', 'logo-sm', 'favicon', 'index', 'style', 'healthz', 'robots', 'sitemap', 'www', 'home', 'sobre', 'ajuda']);
+const RESERVED = new Set(['api', 'u', 'app', 'admin', 'login', 'entrar', 'criar', 'static', 'public', 'assets', 'logo', 'logo-sm', 'favicon', 'index', 'style', 'healthz', 'robots', 'sitemap', 'www', 'home', 'sobre', 'ajuda', 'exercicios', 'evolucao', 'treino', 'treinos']);
 
 // Normaliza o que a pessoa digitou: "Felipe Souza" -> "felipe-souza".
 function normalizeSlug(v) {
@@ -322,6 +323,173 @@ async function analyze(text, images) {
   };
 }
 
+/* ---------- treino, base de exercícios e fotos ---------- */
+// Mesmo formato do Marombinhas antigo: treino:<nome>, base:global, foto:<id>.
+// Assim, ligando o mesmo banco ao projeto novo, os dados antigos aparecem sem migração.
+
+const TREINO_RE = /^\/api\/treino\/([a-z0-9][a-z0-9-]{1,28}[a-z0-9])$/;
+const BASE_RE = /^\/api\/base(?:\/([a-z0-9-]{3,40}))?$/;
+const FOTO_RE = /^\/api\/foto\/([a-z0-9]{6,40})$/;
+const ID_RE = /^[a-z0-9-]{3,40}$/;
+const treinoKey = (slug) => `treino:${slug}`;
+
+function strMulti(v, max) {
+  if (typeof v !== 'string') return '';
+  return v.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, max);
+}
+const rid = () => crypto.randomBytes(5).toString('hex');
+const okId = (v) => (typeof v === 'string' && ID_RE.test(v) ? v : rid());
+
+// Garante o formato do documento de treino (aceita também o formato antigo, só a lista de treinos).
+function cleanTreino(raw) {
+  if (Array.isArray(raw)) raw = { workouts: raw };
+  if (!raw || typeof raw !== 'object') throw httpError(400, 'Dados inválidos.');
+  const workouts = (Array.isArray(raw.workouts) ? raw.workouts : []).slice(0, 30).map((w) => ({
+    id: okId(w && w.id),
+    name: str(w && w.name, 40) || 'Treino',
+    exercises: (Array.isArray(w && w.exercises) ? w.exercises : []).slice(0, 80).map((e) => {
+      const ex = {
+        id: okId(e && e.id),
+        name: str(e && e.name, 80) || 'Exercício',
+        series: str(e && e.series, 20) || '3x10',
+        peso: str(e && e.peso, 20) || '0Kg',
+        history: (Array.isArray(e && e.history) ? e.history : [])
+          .filter((h) => h && validDate(h.d) && Number(h.kg) > 0)
+          .slice(-200)
+          .map((h) => ({ d: h.d, kg: num(h.kg, 0, 2000) })),
+      };
+      if (e && typeof e.baseId === 'string' && ID_RE.test(e.baseId)) ex.baseId = e.baseId;
+      return ex;
+    }),
+  }));
+  const doc = {
+    title: str(raw.title, 120) || 'Planejamento academia',
+    desc: strMulti(raw.desc, 800),
+    workouts: workouts.length ? workouts : [{ id: rid(), name: 'Treino', exercises: [] }],
+  };
+  if (Array.isArray(raw.library) && raw.library.length) {
+    doc.library = raw.library.slice(0, 100).map((l) => ({ id: okId(l && l.id), name: str(l && l.name, 60) || 'Exercício' }));
+  }
+  return doc;
+}
+
+function cleanBaseItem(b, id) {
+  const name = str(b && b.name, 60);
+  if (!name) throw httpError(400, 'Dê um nome ao exercício.');
+  const link = str(b && b.link, 300);
+  if (link && !/^https?:\/\/[^\s]+$/i.test(link)) throw httpError(400, 'O link de exemplo precisa começar com http:// ou https://');
+  return {
+    id,
+    name,
+    muscles: str(b && b.muscles, 120),
+    desc: strMulti(b && b.desc, 400),
+    link,
+    photo: b && typeof b.photo === 'string' && /^[a-z0-9]{6,40}$/.test(b.photo) ? b.photo : '',
+  };
+}
+
+async function loadBase() {
+  const raw = await cmd1('GET', 'base:global');
+  const d = raw && parse(raw);
+  return d && Array.isArray(d.items) ? d : { items: SEED.map((x) => ({ ...x })) };
+}
+
+async function limitGlobalWrites(req) {
+  if (!(await rateLimit(`macrinhos:rl:base:${clientIp(req)}`, 120, 3600))) {
+    throw httpError(429, 'Muitas alterações seguidas. Tente de novo em alguns minutos.');
+  }
+}
+
+async function handleTreino(req, res, slug) {
+  const key = treinoKey(slug);
+  if (req.method === 'GET') {
+    const raw = await cmd1('GET', key);
+    return sendJson(res, 200, { data: (raw && parse(raw)) || null });
+  }
+  if (req.method === 'PUT') {
+    const body = await readBody(req);
+    const doc = cleanTreino(body.data);
+    const json = JSON.stringify(doc);
+    if (json.length > 100000) throw httpError(400, 'O treino ficou grande demais.');
+    const [n, , exists] = await pipeline([
+      ['INCR', `macrinhos:rl:treino:${clientIp(req)}`],
+      ['EXPIRE', `macrinhos:rl:treino:${clientIp(req)}`, 3600, 'NX'],
+      ['EXISTS', userKey(slug)],
+    ]);
+    if (Number(n) > 3000) throw httpError(429, 'Muitas alterações seguidas. Tente de novo em alguns minutos.');
+    if (!exists) throw httpError(404, 'Painel não encontrado. Crie o painel antes de salvar o treino.');
+    await cmd1('SET', key, json);
+    return sendJson(res, 200, { ok: true });
+  }
+  throw httpError(405, 'Método não permitido.');
+}
+
+async function handleBase(req, res, id) {
+  if (req.method === 'GET' && !id) {
+    return sendJson(res, 200, { items: (await loadBase()).items });
+  }
+  if (req.method === 'PUT' && id) {
+    const body = await readBody(req);
+    const item = cleanBaseItem(body, id);
+    await limitGlobalWrites(req);
+    const base = await loadBase();
+    if (base.items.some((x) => x.id !== id && String(x.name).toLowerCase() === item.name.toLowerCase())) {
+      throw httpError(409, 'Já existe um exercício com esse nome.');
+    }
+    const i = base.items.findIndex((x) => x.id === id);
+    if (i < 0) {
+      if (base.items.length >= 500) throw httpError(400, 'A base chegou ao limite de 500 exercícios.');
+      base.items.push(item);
+    } else {
+      base.items[i] = { ...base.items[i], ...item };
+    }
+    await cmd1('SET', 'base:global', JSON.stringify(base));
+    return sendJson(res, 200, { item });
+  }
+  if (req.method === 'DELETE' && id) {
+    await limitGlobalWrites(req);
+    const base = await loadBase();
+    const left = base.items.filter((x) => x.id !== id);
+    if (left.length === base.items.length) throw httpError(404, 'Exercício não encontrado.');
+    await cmd1('SET', 'base:global', JSON.stringify({ ...base, items: left }));
+    return sendJson(res, 200, { ok: true });
+  }
+  throw httpError(405, 'Método não permitido.');
+}
+
+async function handleFoto(req, res, id) {
+  const key = `foto:${id}`;
+  if (req.method === 'GET') {
+    let raw = await cmd1('GET', key);
+    if (typeof raw === 'string' && raw.startsWith('"')) raw = parse(raw) || raw;
+    const m = typeof raw === 'string' ? /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(raw) : null;
+    if (!m) { res.writeHead(404, { 'Cache-Control': 'no-store' }); return res.end(); }
+    const buf = Buffer.from(m[1], 'base64');
+    res.writeHead(200, {
+      'Content-Type': 'image/jpeg',
+      'Content-Length': buf.length,
+      // o id muda a cada foto nova, então pode ficar em cache
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
+    return res.end(buf);
+  }
+  if (req.method === 'PUT') {
+    const body = await readBody(req);
+    const data = body.data;
+    if (typeof data !== 'string' || data.length > 200000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(data)) {
+      throw httpError(400, 'Imagem inválida.');
+    }
+    await limitGlobalWrites(req);
+    await cmd1('SET', key, data);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (req.method === 'DELETE') {
+    await cmd1('DEL', key);
+    return sendJson(res, 200, { ok: true });
+  }
+  throw httpError(405, 'Método não permitido.');
+}
+
 /* ---------- rotas ---------- */
 
 const API_RE = /^\/api\/u\/([a-z0-9][a-z0-9-]{1,28}[a-z0-9]|[a-z0-9]{16})(?:\/(goals|analyze|meals)(?:\/([a-z0-9]{6,40}))?)?$/;
@@ -340,6 +508,11 @@ async function route(req, res) {
       db: Boolean((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN)),
     });
   }
+
+  let mm;
+  if ((mm = TREINO_RE.exec(p))) return handleTreino(req, res, mm[1]);
+  if ((mm = BASE_RE.exec(p))) return handleBase(req, res, mm[1]);
+  if ((mm = FOTO_RE.exec(p))) return handleFoto(req, res, mm[1]);
 
   if (p === '/api/create') {
     if (method !== 'POST') throw httpError(405, 'Método não permitido.');
@@ -381,7 +554,7 @@ async function route(req, res) {
     if (method === 'DELETE') {
       const raw = await cmd1('GET', uk);
       if (!raw) throw httpError(404, 'Painel não encontrado.');
-      await cmd1('DEL', uk, mk);
+      await cmd1('DEL', uk, mk, treinoKey(code));
       return sendJson(res, 200, { ok: true });
     }
     throw httpError(405, 'Método não permitido.');

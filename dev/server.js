@@ -35,7 +35,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
       req.url = `/api/index?p=${p.slice(5)}`;
       return api(req, res);
     }
-    const isPage = p === '/' || /^\/u\/[^/]+\/?$/.test(p) || /^\/[^/.]+\/?$/.test(p);
+    const isPage = p === '/' || /^\/u\/[^/]+\/?$/.test(p) || /^\/[^/.]+(\/[^/.]+)?\/?$/.test(p);
     let file = isPage ? '/index.html' : p;
     const full = path.join(root, 'public', path.normalize(file));
     if (!full.startsWith(path.join(root, 'public')) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {

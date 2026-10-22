@@ -17,7 +17,7 @@ const fmtN = (n, dec = 0) => Number(n || 0).toLocaleString('pt-BR', { maximumFra
 const parseNum = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : 0; };
 const fieldVal = (n) => String(n || 0).replace('.', ',');
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const RESERVED = ['api', 'u', 'app', 'admin', 'login', 'entrar', 'criar', 'static', 'public', 'assets', 'logo', 'logo-sm', 'favicon', 'index', 'style', 'healthz', 'robots', 'sitemap', 'www', 'home', 'sobre', 'ajuda'];
+const RESERVED = ['api', 'u', 'app', 'admin', 'login', 'entrar', 'criar', 'static', 'public', 'assets', 'logo', 'logo-sm', 'favicon', 'index', 'style', 'healthz', 'robots', 'sitemap', 'www', 'home', 'sobre', 'ajuda', 'exercicios', 'evolucao', 'treino', 'treinos'];
 const normalizeSlug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/g, '');
 const validSlug = (s) => /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(s) && !RESERVED.includes(s);
@@ -41,10 +41,13 @@ const ICONS = {
   fork: '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-3 4-3 7h3v11"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  dumbbell: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
 };
 const icon = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
 const LOGO = '<img class="logo" src="/logo-sm.png" width="36" height="36" alt="">';
+
+let T = null; // módulo de treinos (treino.js), criado depois que api() e toast() existirem
 
 let toastTimer;
 function toast(msg) {
@@ -74,6 +77,8 @@ async function api(method, url, body) {
   }
   return data;
 }
+
+T = window.createTreino({ esc, api, toast, icon, logo: LOGO, app });
 
 /* ================= estado ================= */
 const state = { code: null, goals: null, profile: null, meals: [], date: today(), tab: 'hoje' };
@@ -135,7 +140,7 @@ function dayLabel(date) {
 /* ================= telas ================= */
 function topbar() {
   const s = streak();
-  return `<div class="top"><div class="brand">${LOGO}Macrinhos</div>
+  return `<div class="top"><div class="brand">${LOGO}Marombinhas</div>
     <div class="streak${s ? ' on' : ''}" title="Dias seguidos com refeições registradas">${icon('flame', 18)}<span class="num">${s} ${s === 1 ? 'dia' : 'dias'}</span></div></div>`;
 }
 
@@ -229,7 +234,7 @@ function viewMetas() {
   const unit = (id, label, val) => `<label class="field"><span>${label}</span><div class="with-unit"><input class="in suffix num" id="${id}" inputmode="numeric" value="${esc(val)}"><em>g</em></div></label>`;
   return `${topbar()}
     <h1 class="page-title">Suas metas</h1>
-    ${state.goals ? '' : '<div class="welcome"><b>Bem-vindo ao Macrinhos!</b>Defina seus macros diárias para começar. Se não souber por onde começar, use o cálculo abaixo.</div>'}
+    ${state.goals ? '' : '<div class="welcome"><b>Bem-vindo ao Marombinhas!</b>Defina suas metas diárias para começar. Se não souber por onde começar, use o cálculo abaixo.</div>'}
     <section class="card">
       <div class="goals-grid">
         <label class="field wide"><span>Calorias por dia</span><div class="with-unit"><input class="in kcal-input num" id="g-kcal" inputmode="numeric" value="${esc(g.kcal)}"><em>kcal</em></div></label>
@@ -268,15 +273,20 @@ function viewMetas() {
 }
 
 function nav() {
-  const tabs = [['hoje', 'Hoje', 'plate'], ['semana', 'Semana', 'bars'], ['metas', 'Metas', 'target']];
+  const tabs = [['hoje', 'Hoje', 'plate'], ['semana', 'Semana', 'bars'], ['treinos', 'Treinos', 'dumbbell'], ['metas', 'Metas', 'target']];
   return `<nav class="nav" aria-label="Principal"><div class="nav-in">${tabs.map(([k, l, i]) =>
     `<button data-action="tab" data-tab="${k}" ${state.tab === k ? 'aria-current="page"' : ''}>${icon(i, 22)}${l}</button>`).join('')}</div></nav>`;
 }
 
+function viewTreinos() {
+  return `${topbar()}<div id="t-root"></div>`;
+}
+
 function render() {
-  const view = state.tab === 'hoje' ? viewHoje() : state.tab === 'semana' ? viewSemana() : viewMetas();
-  const fab = state.goals && state.tab !== 'metas' ? `<button class="fab" data-action="open-add">${icon('plus', 22)}Registrar refeição</button>` : '';
+  const view = state.tab === 'hoje' ? viewHoje() : state.tab === 'semana' ? viewSemana() : state.tab === 'treinos' ? viewTreinos() : viewMetas();
+  const fab = state.goals && (state.tab === 'hoje' || state.tab === 'semana') ? `<button class="fab" data-action="open-add">${icon('plus', 22)}Registrar refeição</button>` : '';
   app.innerHTML = `<div class="shell">${view}</div>${nav()}${fab}`;
+  if (state.tab === 'treinos') T.mountTab(state.code);
 }
 
 /* ================= folha de registro ================= */
@@ -479,8 +489,9 @@ const actions = {
   'claim': (el) => claimPanel(el),
   tab: (el) => {
     const t = el.dataset.tab;
-    if (!state.goals && t !== 'metas') return toast('Defina suas metas para começar.');
+    if (!state.goals && t !== 'metas' && t !== 'treinos') return toast('Defina suas metas para começar.');
     state.tab = t;
+    history.replaceState(null, '', t === 'treinos' ? `/${state.code}/treino` : `/${state.code}`);
     render();
     window.scrollTo(0, 0);
   },
@@ -623,7 +634,7 @@ function landing() {
   try { saved = localStorage.getItem('macrinhos:code'); } catch { /* ok */ }
   const sample = { kcal: 1380, goal: 2000 };
   app.innerHTML = `<div class="land">
-    <div class="top"><div class="brand">${LOGO}Macrinhos</div></div>
+    <div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
     <div class="land-grid">
       <div class="hero">
         <h1>Conte o que comeu. <em>A IA faz a conta.</em></h1>
@@ -638,11 +649,12 @@ function landing() {
         <ul class="points">
           <li>${icon('camera', 20)}<span><b>Foto ou texto.</b> Descreva a refeição do seu jeito.</span></li>
           <li>${icon('target', 20)}<span><b>Metas suas.</b> Defina calorias e macros ou deixe o app sugerir.</span></li>
+          <li>${icon('dumbbell', 20)}<span><b>Caderno de treino.</b> Monte suas fichas e acompanhe a evolução dos pesos.</span></li>
           <li>${icon('check', 20)}<span><b>Sem cadastro.</b> Seu endereço é o seu acesso, em qualquer aparelho.</span></li>
         </ul>
       </div>
       <div class="preview">
-        <img class="mascot" src="/logo.png" width="480" height="480" alt="Guaxinim fitness, mascote do Macrinhos">
+        <img class="mascot" src="/logo.png" width="480" height="480" alt="Guaxinim fitness, mascote do Marombinhas">
         <div class="card" aria-hidden="true">
           <span class="tag">Exemplo</span>
           <div class="sum">
@@ -653,13 +665,13 @@ function landing() {
         </div>
       </div>
     </div>
-    <p class="disclaimer">As estimativas feitas por IA são aproximadas e podem errar; ajuste os valores quando souber os números reais. O Macrinhos não substitui o acompanhamento de nutricionista ou médico.</p>
+    <p class="disclaimer">As estimativas feitas por IA são aproximadas e podem errar; ajuste os valores quando souber os números reais. O Marombinhas não substitui o acompanhamento de nutricionista ou médico.</p>
   </div>`;
   $('#enter-form').addEventListener('submit', (e) => { e.preventDefault(); actions.enter(); });
 }
 
 function claimScreen(slug) {
-  app.innerHTML = `<div class="land"><div class="top"><div class="brand">${LOGO}Macrinhos</div></div>
+  app.innerHTML = `<div class="land"><div class="top"><div class="brand">${LOGO}Marombinhas</div></div>
     <div class="claim card">
       <h1>Esse painel ainda não existe</h1>
       <p class="lead" style="padding:0">Quer criar <b>${esc(location.host)}/${esc(slug)}</b> agora?</p>
@@ -670,7 +682,7 @@ function claimScreen(slug) {
 }
 
 /* ================= início ================= */
-async function boot(code) {
+async function boot(code, opts = {}) {
   state.code = code;
   app.innerHTML = '<div class="loading">Carregando…</div>';
   try {
@@ -679,7 +691,7 @@ async function boot(code) {
     state.goals = d.goals;
     state.profile = d.profile;
     state.meals = d.meals;
-    state.tab = state.goals ? 'hoje' : 'metas';
+    state.tab = opts.tab || (state.goals ? 'hoje' : 'metas');
     render();
   } catch (e) {
     if (e.status === 404) {
@@ -691,12 +703,21 @@ async function boot(code) {
 }
 
 (function start() {
-  const seg = location.pathname.replace(/^\/u\//, '/').replace(/^\/+|\/+$/g, '');
-  if (!seg) return landing();
-  const slug = normalizeSlug(decodeURIComponent(seg));
+  let parts = location.pathname.split('/').filter(Boolean).map((x) => { try { return decodeURIComponent(x); } catch { return x; } });
+  if (parts[0] === 'u') parts = parts.slice(1); // endereços antigos /u/código
+  const [a, b] = parts;
+  if (!a) return landing();
+  // Base global de exercícios
+  if (normalizeSlug(a) === 'exercicios' && !b) return T.basePage({ back: '/', label: '← início' });
+  const slug = normalizeSlug(a);
   if (!validSlug(slug)) return landing();
-  // Corrige maiúsculas e acentos no endereço (ex.: /Felipe vira /felipe).
-  if (seg !== slug) history.replaceState(null, '', `/${slug}`);
-  boot(slug);
+  const sub = normalizeSlug(b || '');
+  if (sub === 'exercicios') return T.basePage({ back: `/${slug}/treino`, label: '← meu treino' });
+  if (sub === 'evolucao') return T.progressPage(slug, { back: `/${slug}/treino`, label: '← meu treino' });
+  const wantTab = sub === 'treino' || sub === 'treinos';
+  const clean = wantTab ? `/${slug}/treino` : `/${slug}`;
+  // Corrige maiúsculas, acentos e rotas antigas no endereço (ex.: /Felipe vira /felipe).
+  if (location.pathname !== clean) history.replaceState(null, '', clean);
+  boot(slug, wantTab ? { tab: 'treinos' } : {});
 })();
 })();
